@@ -3,9 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect, useRef, ReactNode } from 'react';
+import { useState, useEffect, ReactNode } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Copy, Check, X, ArrowRight, Loader2, Calendar, Heart, Flag } from 'lucide-react';
+import { Copy, Check, X, ArrowRight, Calendar, Heart, Flag, Flashlight, Camera } from 'lucide-react';
+import { CalendarPreview } from './CalendarPreview';
 
 // --- Types ---
 
@@ -67,18 +68,80 @@ const Button = ({
   );
 };
 
+// Phone mockup - iPhone lock screen style
+const PhonePreview = ({ 
+  children,
+  className = ''
+}: { 
+  width?: number; 
+  height?: number; 
+  children: ReactNode;
+  className?: string;
+}) => {
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+
+  return (
+    <div 
+      className={`relative bg-black rounded-[2rem] border-[3px] border-zinc-700/80 shadow-2xl overflow-hidden ${className}`}
+      style={{ width: '100%', aspectRatio: '9 / 19.5' }}
+    >
+      {/* Notch */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[30%] h-[6%] bg-black rounded-b-2xl z-30" />
+      
+      {/* Status bar */}
+      <div className="absolute top-[1.5%] left-0 right-0 flex justify-between items-center px-[8%] text-[9px] text-white/70 font-medium z-20 pointer-events-none">
+        <span>9:41</span>
+        <div className="flex items-center gap-1">
+          <div className="w-4 h-2 rounded-sm border border-white/70 flex items-center px-[1px]">
+            <div className="w-full h-1 rounded-sm bg-white/90" />
+          </div>
+        </div>
+      </div>
+
+      {/* Date + Time */}
+      <div className="absolute top-[8%] left-0 right-0 text-center z-20 pointer-events-none">
+        <div className="text-white/60 text-[8px] font-medium">{dateStr}</div>
+        <div className="text-white text-xl font-semibold tracking-tight leading-tight">
+          {now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
+        </div>
+      </div>
+
+      {/* Calendar content area */}
+      <div 
+        className="absolute left-[5%] right-[5%] overflow-hidden"
+        style={{ top: '22%', bottom: '14%' }}
+      >
+        {children}
+      </div>
+
+      {/* Flashlight + Camera */}
+      <div className="absolute bottom-[6%] left-0 right-0 flex justify-between px-[15%] z-20 pointer-events-none">
+        <div className="w-7 h-7 rounded-full bg-white/15 flex items-center justify-center">
+          <Flashlight className="w-3 h-3 text-white/80" strokeWidth={1.5} />
+        </div>
+        <div className="w-7 h-7 rounded-full bg-white/15 flex items-center justify-center">
+          <Camera className="w-3 h-3 text-white/80" strokeWidth={1.5} />
+        </div>
+      </div>
+      {/* Home indicator */}
+      <div className="absolute bottom-[2%] left-1/2 -translate-x-1/2 w-[35%] h-1 rounded-full bg-white/30 z-20 pointer-events-none" />
+    </div>
+  );
+};
+
 const Card = ({ 
   title, 
   description, 
   icon: Icon, 
   onClick,
-  previewUrl
+  mode
 }: { 
   title: string; 
   description: string; 
   icon: any; 
   onClick: () => void;
-  previewUrl: string;
+  mode: Mode;
 }) => {
   return (
     <motion.div
@@ -97,23 +160,24 @@ const Card = ({
         <p className="text-sm text-zinc-400 max-w-[200px] mx-auto">{description}</p>
       </div>
 
-      {/* Phone Preview Mockup */}
-      <div className="relative w-[180px] aspect-[9/19.5] bg-black rounded-[2rem] border-[4px] border-zinc-800 shadow-2xl mb-8 overflow-hidden group-hover:border-zinc-700 transition-colors duration-500">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1/3 h-4 bg-black rounded-b-lg z-20" />
-        <img 
-          src={previewUrl} 
-          alt={title} 
-          className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity duration-500"
-        />
-        {/* Lock Screen Overlay */}
-        <div className="absolute top-8 w-full text-center z-10 pointer-events-none">
-          <div className="text-white/60 text-[10px] font-medium">Monday, Jan 1</div>
-          <div className="text-white text-3xl font-bold tracking-tight">9:41</div>
-        </div>
+      <div className="mb-8 flex justify-center w-[140px] mx-auto">
+        <PhonePreview className="w-full">
+          <CalendarPreview
+            mode={mode}
+            fg="#FFFFFF"
+            bg="#000000"
+            year={new Date().getFullYear()}
+            birthday="2000-01-01"
+            lifeExp={80}
+            showStats={false}
+            width={600}
+            height={1200}
+          />
+        </PhonePreview>
       </div>
 
       <Button onClick={onClick} className="w-full mt-auto relative z-10 group-hover:bg-white group-hover:text-black">
-        Create Wallpaper <ArrowRight className="w-4 h-4 ml-2" />
+        Install <ArrowRight className="w-4 h-4 ml-1" />
       </Button>
     </motion.div>
   );
@@ -131,20 +195,16 @@ const Modal = ({
   setConfig: (c: Config) => void; 
 }) => {
   const [url, setUrl] = useState('');
-  const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
-  const [imageError, setImageError] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
-
     const params = new URLSearchParams();
     params.set('mode', config.mode);
     params.set('width', config.width.toString());
     params.set('height', config.height.toString());
     params.set('fg', config.fg.replace('#', ''));
     params.set('bg', config.bg.replace('#', ''));
-    
     if (config.mode === 'year') {
       params.set('year', config.year.toString());
     } else {
@@ -152,16 +212,8 @@ const Modal = ({
       params.set('lifeExpectancyYears', config.lifeExp.toString());
       params.set('showStats', config.showStats ? '1' : '0');
     }
-
     const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
-    const newUrl = `${baseUrl}/api/wallpaper?${params.toString()}`;
-    
-    // Only update if URL actually changed to prevent flicker
-    if (newUrl !== url) {
-      setLoading(true);
-      setImageError(false);
-      setUrl(newUrl);
-    }
+    setUrl(`${baseUrl}/api/wallpaper?${params.toString()}`);
   }, [config, isOpen]);
 
   const handleCopy = () => {
@@ -281,11 +333,11 @@ const Modal = ({
                     <label className="text-xs font-medium text-zinc-500 uppercase tracking-wider">Device Preset</label>
                     <select
                       className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-white/20 transition-all appearance-none"
+                      value={`${config.width}x${config.height}`}
                       onChange={(e) => {
                         const [w, h] = e.target.value.split('x').map(Number);
                         setConfig({ ...config, width: w, height: h });
                       }}
-                      defaultValue="1290x2796"
                     >
                       <option value="1290x2796">iPhone 14/15/16 Pro Max</option>
                       <option value="1179x2556">iPhone 14/15/16 Pro</option>
@@ -315,60 +367,22 @@ const Modal = ({
               </div>
 
               {/* Right: Live Preview */}
-              <div className="w-full md:w-1/2 bg-[#050505] relative flex items-center justify-center p-8 md:p-12">
+              <div className="w-full md:w-1/2 bg-[#050505] relative flex items-center justify-center p-6 md:p-10">
                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-white/5 to-transparent opacity-50" />
-                
-                <div 
-                  className="relative z-10 shadow-2xl rounded-[3rem] overflow-hidden border-[8px] border-[#1a1a1a] bg-black transition-all duration-500 ease-in-out"
-                  style={{
-                    width: '320px',
-                    height: `${(320 * config.height) / config.width}px`,
-                    maxHeight: '650px'
-                  }}
-                >
-                  {/* Notch */}
-                  <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[35%] h-7 bg-black rounded-b-2xl z-20" />
-                  
-                  {/* Loading State */}
-                  {loading && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-zinc-900 z-10">
-                      <Loader2 className="w-8 h-8 text-white animate-spin" />
-                    </div>
-                  )}
-
-                  {/* Error State */}
-                  {imageError && !loading && (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-zinc-900 z-10 text-zinc-400 p-4 text-center">
-                      <Flag className="w-8 h-8 mb-2 opacity-50" />
-                      <p className="text-sm">Preview failed to load</p>
-                    </div>
-                  )}
-
-                  <img 
-                    src={url} 
-                    alt="Wallpaper Preview" 
-                    className={`w-full h-full object-cover transition-opacity duration-500 ${loading ? 'opacity-0' : 'opacity-100'}`}
-                    onLoad={() => setLoading(false)}
-                    onError={() => {
-                      setLoading(false);
-                      setImageError(true);
-                    }}
-                  />
-                  
-                  {/* Lock Screen UI Overlay */}
-                  <div className="absolute top-14 w-full text-center z-10 pointer-events-none mix-blend-difference">
-                    <div className="text-white/80 text-sm font-medium drop-shadow-md">Monday, January 1</div>
-                    <div className="text-white text-6xl font-bold tracking-tight mt-1 drop-shadow-md">9:41</div>
-                  </div>
-                  
-                  <div className="absolute bottom-10 w-full flex justify-between px-12 z-10 pointer-events-none">
-                     <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center shadow-lg">
-                       <div className="w-6 h-6 bg-white rounded-full opacity-80" />
-                     </div>
-                     <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center shadow-lg">
-                       <div className="w-6 h-6 bg-white rounded-full opacity-80" />
-                     </div>
-                  </div>
+                <div className="relative z-10 w-[220px] md:w-[250px]">
+                  <PhonePreview>
+                    <CalendarPreview
+                      mode={config.mode}
+                      fg={config.fg}
+                      bg={config.bg}
+                      year={config.year}
+                      birthday={config.birthday}
+                      lifeExp={config.lifeExp}
+                      showStats={config.showStats}
+                      width={config.width}
+                      height={config.height}
+                    />
+                  </PhonePreview>
                 </div>
               </div>
 
@@ -390,11 +404,6 @@ export default function App() {
     setConfig({ ...DEFAULT_CONFIG, mode });
     setModalOpen(true);
   };
-
-  // Generate static preview URLs for the landing cards
-  const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
-  const yearPreview = `${baseUrl}/api/wallpaper?mode=year&width=600&height=1200&fg=FFFFFF&bg=000000&year=${new Date().getFullYear()}`;
-  const lifePreview = `${baseUrl}/api/wallpaper?mode=life&width=600&height=1200&fg=FFFFFF&bg=000000&birthday=2000-01-01&lifeExpectancyYears=80`;
 
   return (
     <div className="min-h-screen bg-black text-white selection:bg-white/20">
@@ -437,14 +446,14 @@ export default function App() {
             description="Visualize your life in weeks. A powerful reminder to make every week count."
             icon={Heart}
             onClick={() => openModal('life')}
-            previewUrl={lifePreview}
+            mode="life"
           />
           <Card 
             title="Year Calendar" 
             description="Track the current year's progress. Stay focused on your annual goals."
             icon={Calendar}
             onClick={() => openModal('year')}
-            previewUrl={yearPreview}
+            mode="year"
           />
           {/* Placeholder for Goal Calendar to match the "3 card" aesthetic request if needed, 
               but sticking to 2 for now as per original spec, or could add a "Coming Soon" card */}

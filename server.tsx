@@ -68,47 +68,53 @@ app.get('/api/wallpaper', async (req, res) => {
       const clampedLived = Math.min(livedWeeks, totalWeeks);
       
       const cols = 52;
-      const rows = lifeExp;
+      const rowsCount = lifeExp;
       const padding = Math.min(w, h) * 0.05;
       const availableW = w - (padding * 2);
       const availableH = h - (padding * 2);
       
       const gapRatio = 0.5;
       const dotSizeW = availableW / (cols + (cols - 1) * gapRatio);
-      const dotSizeH = availableH / (rows + (rows - 1) * gapRatio);
+      const dotSizeH = availableH / (rowsCount + (rowsCount - 1) * gapRatio);
       const dotSize = Math.min(dotSizeW, dotSizeH);
       const gap = dotSize * gapRatio;
       const totalW = cols * dotSize + (cols - 1) * gap;
-      const totalH = rows * dotSize + (rows - 1) * gap;
+      const totalH = rowsCount * dotSize + (rowsCount - 1) * gap;
 
-      const dots = [];
-      for (let i = 0; i < totalWeeks; i++) {
-        const isLived = i < clampedLived;
-        const col = i % cols;
-        const row = Math.floor(i / cols);
-        
-        dots.push(
-          <div
-            key={i}
-            style={{
-              position: 'absolute',
-              left: col * (dotSize + gap),
-              top: row * (dotSize + gap),
-              width: dotSize,
-              height: dotSize,
-              borderRadius: '50%',
-              backgroundColor: isLived ? fgColor : 'transparent',
-              border: isLived ? 'none' : `1px solid ${fgColor}`,
-              opacity: isLived ? 1 : 0.2,
-              boxSizing: 'border-box'
-            }}
-          />
+      const rowElements: React.ReactNode[] = [];
+      for (let row = 0; row < lifeExp; row++) {
+        const rowDots: React.ReactNode[] = [];
+        for (let col = 0; col < cols; col++) {
+          const i = row * cols + col;
+          const isLived = i < clampedLived;
+          rowDots.push(
+            <div
+              key={i}
+              style={{
+                width: dotSize,
+                height: dotSize,
+                marginRight: col < cols - 1 ? gap : 0,
+                marginBottom: 0,
+                borderRadius: '50%',
+                backgroundColor: isLived ? fgColor : 'transparent',
+                border: isLived ? 'none' : `1px solid ${fgColor}`,
+                opacity: isLived ? 1 : 0.2,
+                boxSizing: 'border-box',
+                flexShrink: 0
+              }}
+            />
+          );
+        }
+        rowElements.push(
+          <div key={row} style={{ display: 'flex', marginBottom: row < lifeExp - 1 ? gap : 0 }}>
+            {rowDots}
+          </div>
         );
       }
 
       element = (
         <div style={{ display: 'flex', width: '100%', height: '100%', backgroundColor: bgColor, alignItems: 'center', justifyContent: 'center', flexDirection: 'column' }}>
-          <div style={{ position: 'relative', width: totalW, height: totalH }}>{dots}</div>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>{rowElements}</div>
           {showStats === '1' && (
             <div style={{ marginTop: padding, color: fgColor, fontSize: dotSize * 2, fontFamily: 'Inter', opacity: 0.5 }}>
               {Math.floor((clampedLived / totalWeeks) * 100)}% lived
@@ -124,52 +130,58 @@ app.get('/api/wallpaper', async (req, res) => {
       const currentDay = getDayOfYear(new Date());
       
       const cols = 7; // Weeks layout
-      const rows = Math.ceil(totalDays / cols);
+      const rowsCount = Math.ceil(totalDays / cols);
       const padding = Math.min(w, h) * 0.1;
       const availableW = w - (padding * 2);
       const availableH = h - (padding * 2);
       
       const gapRatio = 0.5;
       const dotSizeW = availableW / (cols + (cols - 1) * gapRatio);
-      const dotSizeH = availableH / (rows + (rows - 1) * gapRatio);
+      const dotSizeH = availableH / (rowsCount + (rowsCount - 1) * gapRatio);
       const dotSize = Math.min(dotSizeW, dotSizeH);
       const gap = dotSize * gapRatio;
       const totalW = cols * dotSize + (cols - 1) * gap;
-      const totalH = rows * dotSize + (rows - 1) * gap;
+      const totalH = rowsCount * dotSize + (rowsCount - 1) * gap;
 
-      const dots = [];
-      for (let i = 0; i < totalDays; i++) {
-        let filled = false;
-        const nowY = new Date().getFullYear();
-        if (y < nowY) filled = true;
-        else if (y > nowY) filled = false;
-        else filled = (i + 1) <= currentDay;
-
-        const col = i % cols;
-        const row = Math.floor(i / cols);
-
-        dots.push(
-          <div
-            key={i}
-            style={{
-              position: 'absolute',
-              left: col * (dotSize + gap),
-              top: row * (dotSize + gap),
-              width: dotSize,
-              height: dotSize,
-              borderRadius: '50%',
-              backgroundColor: filled ? fgColor : 'transparent',
-              border: filled ? 'none' : `1px solid ${fgColor}`,
-              opacity: filled ? 1 : 0.2,
-              boxSizing: 'border-box'
-            }}
-          />
+      const rowElements: React.ReactNode[] = [];
+      for (let row = 0; row < rowsCount; row++) {
+        const rowDots: React.ReactNode[] = [];
+        for (let col = 0; col < cols; col++) {
+          const i = row * cols + col;
+          if (i >= totalDays) break;
+          let filled = false;
+          const nowY = new Date().getFullYear();
+          if (y < nowY) filled = true;
+          else if (y > nowY) filled = false;
+          else filled = (i + 1) <= currentDay;
+          rowDots.push(
+            <div
+              key={i}
+              style={{
+                width: dotSize,
+                height: dotSize,
+                marginRight: col < cols - 1 ? gap : 0,
+                marginBottom: 0,
+                borderRadius: '50%',
+                backgroundColor: filled ? fgColor : 'transparent',
+                border: filled ? 'none' : `1px solid ${fgColor}`,
+                opacity: filled ? 1 : 0.2,
+                boxSizing: 'border-box',
+                flexShrink: 0
+              }}
+            />
+          );
+        }
+        rowElements.push(
+          <div key={row} style={{ display: 'flex', marginBottom: row < rowsCount - 1 ? gap : 0 }}>
+            {rowDots}
+          </div>
         );
       }
       
       element = (
         <div style={{ display: 'flex', width: '100%', height: '100%', backgroundColor: bgColor, alignItems: 'center', justifyContent: 'center', flexDirection: 'column' }}>
-           <div style={{ position: 'relative', width: totalW, height: totalH }}>{dots}</div>
+           <div style={{ display: 'flex', flexDirection: 'column' }}>{rowElements}</div>
            <div style={{ marginTop: padding / 2, color: fgColor, fontSize: dotSize * 2, fontFamily: 'Inter', opacity: 0.5 }}>{y}</div>
         </div>
       );
